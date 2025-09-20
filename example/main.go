@@ -7,7 +7,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/hackathon/gotrace"
+	"github.com/skulidropek/gotrace"
 )
 
 // User represents a simple user struct for demonstration

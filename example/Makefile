@@ -44,7 +44,7 @@ run-instrumented: instrument
 	@echo "Running instrumented version..."
 	@echo "=============================="
 	cd instrumented && \
-	go mod edit -replace github.com/hackathon/gotrace=../../ && \
+	go mod edit -replace github.com/skulidropek/gotrace=../../ && \
 	go mod tidy && \
 	DEVTRACE_ENABLED=true go run main.go
 

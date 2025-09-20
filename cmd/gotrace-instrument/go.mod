@@ -1,4 +1,4 @@
-module github.com/hackathon/gotrace/cmd/gotrace-instrument
+module github.com/skulidropek/gotrace/cmd/gotrace-instrument
 
 go 1.21
 

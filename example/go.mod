@@ -1,7 +1,7 @@
-module github.com/hackathon/gotrace/example
+module github.com/skulidropek/gotrace/example
 
 go 1.21
 
-require github.com/hackathon/gotrace v0.0.0
+require github.com/skulidropek/gotrace v0.0.0
 
-replace github.com/hackathon/gotrace => ../
+replace github.com/skulidropek/gotrace => ../

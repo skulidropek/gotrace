@@ -16,7 +16,7 @@ Go DevTrace — лёгкая надстройка над стандартным 
 import (
     "log"
 
-    devtrace "github.com/hackathon/gotrace"
+    devtrace "github.com/skulidropek/gotrace"
 )
 
 func init() {

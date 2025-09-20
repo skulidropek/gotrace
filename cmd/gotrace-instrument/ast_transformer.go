@@ -49,7 +49,7 @@ func (t *ASTTransformer) Transform(file *ast.File) bool {
 
 func (t *ASTTransformer) checkExistingImports(file *ast.File) {
 	for _, imp := range file.Imports {
-		if imp.Path.Value == `"github.com/hackathon/gotrace"` {
+		if imp.Path.Value == `"github.com/skulidropek/gotrace"` {
 			t.hasDevtrace = true
 			break
 		}
@@ -62,7 +62,7 @@ func (t *ASTTransformer) addDevtraceImport(file *ast.File) {
 		Name: ast.NewIdent("devtrace"),
 		Path: &ast.BasicLit{
 			Kind:  token.STRING,
-			Value: `"github.com/hackathon/gotrace"`,
+			Value: `"github.com/skulidropek/gotrace"`,
 		},
 	}
 

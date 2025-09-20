@@ -1,3 +1,3 @@
-module github.com/hackathon/gotrace
+module github.com/skulidropek/gotrace
 
 go 1.21

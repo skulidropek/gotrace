@@ -11,6 +11,7 @@ import (
 // Frame represents a single stack frame with enhanced debugging information
 type Frame struct {
 	Function   string                 `json:"function"`
+	Signature  string                 `json:"signature,omitempty"`
 	File       string                 `json:"file"`
 	Line       int                    `json:"line"`
 	Args       map[string]interface{} `json:"args,omitempty"`
@@ -70,7 +71,7 @@ func (dv *DebugVars) String() string {
 	if dv == nil || len(dv.Vars) == 0 {
 		return "{}"
 	}
-	
+
 	parts := make([]string, 0, len(dv.Vars))
 	for k, v := range dv.Vars {
 		parts = append(parts, fmt.Sprintf("%q: %+v", k, v))

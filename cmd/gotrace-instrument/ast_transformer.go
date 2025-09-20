@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -13,21 +14,21 @@ import (
 )
 
 type ASTTransformer struct {
-	FileSet       *token.FileSet
-	AddTrace      bool
-	AddLogging    bool
-	Verbose       bool
-	modified      bool
-	hasDevtrace   bool
-	packageName   string
-	fileName      string
+	FileSet     *token.FileSet
+	AddTrace    bool
+	AddLogging  bool
+	Verbose     bool
+	modified    bool
+	hasDevtrace bool
+	packageName string
+	fileName    string
 }
 
 func (t *ASTTransformer) Transform(file *ast.File) bool {
 	t.modified = false
 	t.hasDevtrace = false
 	t.packageName = file.Name.Name
-	
+
 	if pos := t.FileSet.Position(file.Pos()); pos.IsValid() {
 		t.fileName = filepath.Base(pos.Filename)
 	}
@@ -77,10 +78,10 @@ func (t *ASTTransformer) addDevtraceImport(file *ast.File) {
 	if importDecl == nil {
 		// Create new import declaration
 		importDecl = &ast.GenDecl{
-			Tok: token.IMPORT,
+			Tok:   token.IMPORT,
 			Specs: []ast.Spec{importSpec},
 		}
-		
+
 		// Insert at the beginning of declarations
 		newDecls := make([]ast.Decl, len(file.Decls)+1)
 		newDecls[0] = importDecl
@@ -132,13 +133,15 @@ func (t *ASTTransformer) instrumentFunction(fn *ast.FuncDecl) {
 
 	// Get position information
 	pos := t.FileSet.Position(fn.Pos())
-	
+
 	// Create arguments map for tracing
 	argsMap := t.createArgsMapForFunction(fn)
 
+	signature := t.buildSignatureForFunction(fn)
+
 	// Create the frame creation statement
-	frameStmt := t.createFrameStatement(functionName, pos.Line, argsMap)
-	
+	frameStmt := t.createFrameStatement(functionName, signature, pos.Line, argsMap)
+
 	// Create defer statement for leaving the trace
 	deferStmt := &ast.DeferStmt{
 		Call: &ast.CallExpr{
@@ -156,7 +159,7 @@ func (t *ASTTransformer) instrumentFunction(fn *ast.FuncDecl) {
 	fn.Body.List = newStmts
 
 	t.modified = true
-	
+
 	if t.Verbose {
 		log.Printf("Instrumented function: %s in %s:%d", functionName, t.fileName, pos.Line)
 	}
@@ -164,33 +167,33 @@ func (t *ASTTransformer) instrumentFunction(fn *ast.FuncDecl) {
 
 func (t *ASTTransformer) shouldSkipFunction(fn *ast.FuncDecl) bool {
 	name := fn.Name.Name
-	
+
 	// Skip init functions
 	if name == "init" {
 		return true
 	}
-	
+
 	// Skip main function in main package
 	if t.packageName == "main" && name == "main" {
 		return true
 	}
-	
+
 	// Skip test functions
 	if strings.HasPrefix(name, "Test") || strings.HasPrefix(name, "Benchmark") || strings.HasPrefix(name, "Example") {
 		return true
 	}
-	
+
 	// Skip functions that start with underscore (private/internal)
 	if strings.HasPrefix(name, "_") {
 		return true
 	}
-	
+
 	return false
 }
 
 func (t *ASTTransformer) createArgsMapForFunction(fn *ast.FuncDecl) *ast.CompositeLit {
 	var elts []ast.Expr
-	
+
 	if fn.Type.Params != nil {
 		for _, field := range fn.Type.Params.List {
 			for _, name := range field.Names {
@@ -203,7 +206,7 @@ func (t *ASTTransformer) createArgsMapForFunction(fn *ast.FuncDecl) *ast.Composi
 			}
 		}
 	}
-	
+
 	return &ast.CompositeLit{
 		Type: &ast.MapType{
 			Key: &ast.Ident{Name: "string"},
@@ -215,8 +218,8 @@ func (t *ASTTransformer) createArgsMapForFunction(fn *ast.FuncDecl) *ast.Composi
 	}
 }
 
-func (t *ASTTransformer) createFrameStatement(functionName string, line int, argsMap *ast.CompositeLit) ast.Stmt {
-	// Create: devtrace.GlobalEnter(devtrace.CreateFrame("functionName", "filename", line, argsMap))
+func (t *ASTTransformer) createFrameStatement(functionName, signature string, line int, argsMap *ast.CompositeLit) ast.Stmt {
+	// Create: devtrace.GlobalEnter(devtrace.CreateFrame("functionName", "signature", "filename", line, argsMap))
 	return &ast.ExprStmt{
 		X: &ast.CallExpr{
 			Fun: &ast.SelectorExpr{
@@ -231,6 +234,7 @@ func (t *ASTTransformer) createFrameStatement(functionName string, line int, arg
 					},
 					Args: []ast.Expr{
 						&ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(functionName)},
+						&ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(signature)},
 						&ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(t.fileName)},
 						&ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(line)},
 						argsMap,
@@ -239,6 +243,66 @@ func (t *ASTTransformer) createFrameStatement(functionName string, line int, arg
 			},
 		},
 	}
+}
+
+func (t *ASTTransformer) buildSignatureForFunction(fn *ast.FuncDecl) string {
+	var builder strings.Builder
+	builder.WriteString(fn.Name.Name)
+	builder.WriteString("(")
+
+	params := make([]string, 0)
+	if fn.Type.Params != nil {
+		for _, field := range fn.Type.Params.List {
+			typeStr := t.renderExpr(field.Type)
+			if len(field.Names) == 0 {
+				params = append(params, typeStr)
+				continue
+			}
+			for _, name := range field.Names {
+				params = append(params, fmt.Sprintf("%s %s", name.Name, typeStr))
+			}
+		}
+	}
+	builder.WriteString(strings.Join(params, ", "))
+	builder.WriteString(")")
+
+	if fn.Type.Results != nil && len(fn.Type.Results.List) > 0 {
+		results := make([]string, 0)
+		for _, field := range fn.Type.Results.List {
+			typeStr := t.renderExpr(field.Type)
+			if len(field.Names) == 0 {
+				results = append(results, typeStr)
+				continue
+			}
+			for _, name := range field.Names {
+				results = append(results, fmt.Sprintf("%s %s", name.Name, typeStr))
+			}
+		}
+
+		if len(fn.Type.Results.List) == 1 && len(fn.Type.Results.List[0].Names) == 0 {
+			builder.WriteString(" ")
+			builder.WriteString(results[0])
+		} else {
+			builder.WriteString(" (")
+			builder.WriteString(strings.Join(results, ", "))
+			builder.WriteString(")")
+		}
+	}
+
+	return builder.String()
+}
+
+func (t *ASTTransformer) renderExpr(expr ast.Expr) string {
+	if expr == nil {
+		return ""
+	}
+
+	var buf bytes.Buffer
+	if err := format.Node(&buf, t.FileSet, expr); err != nil {
+		return ""
+	}
+
+	return buf.String()
 }
 
 func (t *ASTTransformer) instrumentLogCall(call *ast.CallExpr) {
@@ -289,8 +353,7 @@ func (t *ASTTransformer) instrumentLogCall(call *ast.CallExpr) {
 func (t *ASTTransformer) isLogCall(call *ast.CallExpr) bool {
 	if selector, ok := call.Fun.(*ast.SelectorExpr); ok {
 		if ident, ok := selector.X.(*ast.Ident); ok {
-			return ident.Name == "log" && (
-				selector.Sel.Name == "Print" ||
+			return ident.Name == "log" && (selector.Sel.Name == "Print" ||
 				selector.Sel.Name == "Printf" ||
 				selector.Sel.Name == "Println" ||
 				selector.Sel.Name == "Fatal" ||

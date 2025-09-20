@@ -3,7 +3,6 @@ package devtrace
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 )
@@ -47,7 +46,7 @@ type DefaultLogger struct{}
 
 func (l *DefaultLogger) Log(level string, msg string, args ...interface{}) {
 	prefix := fmt.Sprintf("[DEVTRACE-%s] ", level)
-	log.Printf(prefix+msg, args...)
+	fmt.Fprintf(os.Stderr, prefix+msg+"\n", args...)
 }
 
 func (l *DefaultLogger) Debug(msg string, args ...interface{}) {

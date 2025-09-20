@@ -22,7 +22,7 @@ var (
 func InitGlobalContext() {
 	globalMutex.Lock()
 	defer globalMutex.Unlock()
-	
+
 	if globalContext == nil {
 		globalContext = &TraceContext{
 			Frames:  make([]*Frame, 0),
@@ -36,7 +36,7 @@ func InitGlobalContext() {
 func GetGlobalContext() *TraceContext {
 	globalMutex.RLock()
 	defer globalMutex.RUnlock()
-	
+
 	if globalContext == nil {
 		return &TraceContext{
 			Frames:  make([]*Frame, 0),
@@ -44,7 +44,7 @@ func GetGlobalContext() *TraceContext {
 			StartAt: time.Now(),
 		}
 	}
-	
+
 	return globalContext
 }
 
@@ -58,11 +58,11 @@ func FromContext(ctx context.Context) *TraceContext {
 	if ctx == nil {
 		return GetGlobalContext()
 	}
-	
+
 	if traceCtx, ok := ctx.Value(traceContextKey).(*TraceContext); ok {
 		return traceCtx
 	}
-	
+
 	return GetGlobalContext()
 }
 
@@ -80,7 +80,7 @@ func (tc *TraceContext) Enter(frame *Frame) {
 	if tc == nil {
 		return
 	}
-	
+
 	tc.Frames = append(tc.Frames, frame)
 	tc.Depth++
 }
@@ -90,17 +90,17 @@ func (tc *TraceContext) Leave() *Frame {
 	if tc == nil || len(tc.Frames) == 0 {
 		return nil
 	}
-	
+
 	frame := tc.Frames[len(tc.Frames)-1]
 	tc.Frames = tc.Frames[:len(tc.Frames)-1]
 	tc.Depth--
-	
+
 	// Update frame end time and duration
 	frame.EndTime = time.Now()
 	if !frame.StartTime.IsZero() {
 		frame.Duration = frame.EndTime.Sub(frame.StartTime)
 	}
-	
+
 	return frame
 }
 
@@ -109,7 +109,7 @@ func (tc *TraceContext) Stack() []*Frame {
 	if tc == nil {
 		return []*Frame{}
 	}
-	
+
 	// Create a copy to avoid race conditions
 	stack := make([]*Frame, len(tc.Frames))
 	copy(stack, tc.Frames)
@@ -133,15 +133,16 @@ func (tc *TraceContext) GetCurrentFrame() *Frame {
 }
 
 // CreateFrame creates a new frame with the given parameters
-func CreateFrame(functionName, file string, line int, args map[string]interface{}) *Frame {
+func CreateFrame(functionName, signature, file string, line int, args map[string]interface{}) *Frame {
 	frame := &Frame{
 		Function:  functionName,
+		Signature: signature,
 		File:      file,
 		Line:      line,
 		Args:      args,
 		StartTime: time.Now(),
 	}
-	
+
 	// Capture caller information
 	if pc, callerFile, callerLine, ok := runtime.Caller(2); ok {
 		if fn := runtime.FuncForPC(pc); fn != nil {
@@ -154,17 +155,17 @@ func CreateFrame(functionName, file string, line int, args map[string]interface{
 			}
 		}
 	}
-	
+
 	return frame
 }
 
 // GlobalEnter adds a frame to the global trace context
 func GlobalEnter(frame *Frame) {
 	InitGlobalContext()
-	
+
 	globalMutex.Lock()
 	defer globalMutex.Unlock()
-	
+
 	globalContext.Enter(frame)
 }
 
@@ -173,10 +174,10 @@ func GlobalLeave() *Frame {
 	if globalContext == nil {
 		return nil
 	}
-	
+
 	globalMutex.Lock()
 	defer globalMutex.Unlock()
-	
+
 	return globalContext.Leave()
 }
 

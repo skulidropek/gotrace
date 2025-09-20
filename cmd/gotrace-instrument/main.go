@@ -31,7 +31,7 @@ func main() {
 	}
 
 	excludePatterns := strings.Split(*exclude, ",")
-	
+
 	instrumenter := &Instrumenter{
 		OutputDir:       *outputDir,
 		ExcludePatterns: excludePatterns,
@@ -102,7 +102,7 @@ func (i *Instrumenter) InstrumentFile(filePath string) error {
 	}
 
 	modified := transformer.Transform(node)
-	
+
 	if !modified {
 		if i.Verbose {
 			log.Printf("No changes needed for: %s", filePath)
@@ -124,12 +124,12 @@ func (i *Instrumenter) getOutputPath(inputPath string) string {
 	if i.OutputDir == filepath.Dir(inputPath) {
 		return inputPath // Overwrite original
 	}
-	
+
 	// Create relative path structure in output directory
 	rel, err := filepath.Rel(".", inputPath)
 	if err != nil {
 		rel = inputPath
 	}
-	
+
 	return filepath.Join(i.OutputDir, rel)
 }

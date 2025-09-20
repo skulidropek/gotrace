@@ -318,7 +318,7 @@ func (t *ASTTransformer) instrumentLogCall(call *ast.CallExpr) {
 
 	// Add devtrace enhanced logging
 	// Transform log.Print(args...) to devtrace.GlobalEnhancedLogger.Info(context.Background(), msg, args...)
-	if selector, ok := call.Fun.(*ast.SelectorExpr); ok {
+	if _, ok := call.Fun.(*ast.SelectorExpr); ok {
 		// Change the call to use devtrace enhanced logger
 		call.Fun = &ast.SelectorExpr{
 			X: &ast.SelectorExpr{

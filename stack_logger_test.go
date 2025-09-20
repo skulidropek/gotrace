@@ -136,7 +136,9 @@ func TestStackLoggerCapturesFunctionArgs(t *testing.T) {
 		t.Fatalf("argument names were not normalized: %s", entry)
 	}
 
-	if !strings.Contains(entry, "worker(ctx context.Context, payload testRequest, limit int)") {
+	signatureOK := strings.Contains(entry, "worker(ctx context.Context, payload testRequest, limit int)") ||
+		strings.Contains(entry, "worker(ctx context.Context, payload devtrace.testRequest, limit int)")
+	if !signatureOK {
 		t.Fatalf("signature missing from stack frame: %s", entry)
 	}
 

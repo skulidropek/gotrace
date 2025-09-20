@@ -4,7 +4,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"go/ast"
 	"go/parser"
 	"go/token"
 	"log"
@@ -51,6 +50,12 @@ func main() {
 		}
 
 		if !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+
+		if match, matchErr := filepath.Match(*pattern, filepath.Base(path)); matchErr != nil {
+			return matchErr
+		} else if !match {
 			return nil
 		}
 
